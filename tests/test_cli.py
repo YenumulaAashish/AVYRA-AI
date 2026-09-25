@@ -26,5 +26,5 @@ def test_exit_interrupt(config,provider,interruption):
 
 def test_missing_config(capsys):
     with patch("config.Config.from_env",side_effect=ConfigurationError("Set OPENAI_API_KEY")):
-        assert main() == 1
+        assert main([]) == 1
     assert "Setup error" in capsys.readouterr().err

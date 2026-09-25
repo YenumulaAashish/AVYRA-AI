@@ -15,3 +15,14 @@
 Session state is local to each assistant instance. The implementation is synchronous and not thread-safe. Serialize calls per instance. Input has a character cap; history uses message counts, not token estimates. A model-specific context-limit rejection is reported safely without altering memory.
 
 Tests replace providers or SDK clients with unittest.mock and prohibit socket connections. CLI tests use injected input/output functions. No live API success is asserted.
+
+
+## V1.1 voice frontend
+
+`main.py --mode voice` composes the same Assistant with Microphone, SpeechRecognizer and SpeechOutput; the default remains text mode. `voice/interaction.py` owns the explicit Enter-to-start loop and shared CLI commands. No second brain or provider exists. Voice imports are lazy so text mode does not require loading Whisper or audio devices.
+
+`voice/microphone.py` opens a scoped SoundDevice InputStream only after start input, copies float32 mono blocks at 16 kHz, closes it on stop/interruption, rejects capture errors and caps capture at 120 seconds. Input remains in memory. `voice/recognition.py` lazily loads one WhisperModel per session and consumes its segment iterator locally with automatic language detection and VAD. Failed loads are retryable.
+
+`voice/speech.py` synthesizes only the successful AI reply using Edge TTS, with a 60-second deadline, into a temporary MP3. SoundFile decodes it and SoundDevice plays it synchronously. Playback is stopped and temporary files are removed on normal completion, errors and KeyboardInterrupt. TTS failure does not roll back an already successful AI turn. STT failure or silence never calls the brain. No audio is sent to OpenAI.
+
+There is no background microphone listener or shell execution. Microsoft receives reply text for speech synthesis; OpenAI receives text conversation context. Model files may be downloaded on first transcription. Existing model system instructions and provider code remain unchanged.

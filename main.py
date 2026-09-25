@@ -1,4 +1,5 @@
 """AVYRA terminal interface. Run with Python 3.11 or newer."""
+import argparse
 import logging
 import sys
 
@@ -7,7 +8,7 @@ HELP = "/help  Show commands\n/clear Clear conversation\n/model Show model\n/sta
 
 def run_cli(assistant, read=input, write=print) -> int:
     from avyra.providers.base import ProviderError
-    write("AVYRA AI V1\nAVYRA: Hello! I'm AVYRA. How can I assist you?")
+    write("AVYRA AI V1.1\nAVYRA: Hello! I'm AVYRA. How can I assist you?")
     try:
         while True:
             text = read("You: ").strip()
@@ -15,17 +16,8 @@ def run_cli(assistant, read=input, write=print) -> int:
                 continue
             if text == "/exit":
                 break
-            if text == "/help":
-                write(HELP)
-            elif text == "/clear":
-                assistant.clear()
-                write("Conversation cleared.")
-            elif text == "/model":
-                write(assistant.config.model)
-            elif text == "/status":
-                write(" | ".join(f"{k}: {v}" for k, v in assistant.status().items()))
-            elif text.startswith("/"):
-                write("Unknown command. Use /help.")
+            if handle_command(assistant, text, write):
+                continue
             else:
                 try:
                     write("AVYRA: " + assistant.respond(text))
@@ -41,7 +33,28 @@ def run_cli(assistant, read=input, write=print) -> int:
     return 0
 
 
-def main() -> int:
+def handle_command(assistant, text, write=print):
+    """Shared local commands; never send commands to the AI provider."""
+    if text == "/help":
+        write(HELP)
+    elif text == "/clear":
+        assistant.clear()
+        write("Conversation cleared.")
+    elif text == "/model":
+        write(assistant.config.model)
+    elif text == "/status":
+        write(" | ".join(f"{k}: {v}" for k, v in assistant.status().items()))
+    elif text.startswith("/"):
+        write("Unknown command. Use /help.")
+    else:
+        return False
+    return True
+
+
+def main(argv=None) -> int:
+    parser = argparse.ArgumentParser(description="AVYRA AI V1.1")
+    parser.add_argument("--mode", choices=("text", "voice"), default="text")
+    args = parser.parse_args(argv)
     if sys.version_info < (3, 11):
         print("AVYRA requires Python 3.11 or newer.", file=sys.stderr)
         return 1
@@ -65,6 +78,12 @@ def main() -> int:
     except Exception:
         print("Setup error: Could not initialize OpenAI. Check configuration and dependencies.", file=sys.stderr)
         return 1
+    if args.mode == "voice":
+        from avyra.voice.microphone import Microphone
+        from avyra.voice.recognition import SpeechRecognizer
+        from avyra.voice.speech import SpeechOutput
+        from avyra.voice.interaction import run_voice
+        return run_voice(assistant, Microphone(), SpeechRecognizer(config), SpeechOutput(config.tts_voice))
     return run_cli(assistant)
 
 

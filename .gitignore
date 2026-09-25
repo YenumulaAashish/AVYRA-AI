@@ -13,3 +13,4 @@ htmlcov/
 .vscode/
 experiments/*.wav
 notepad .gitignore
+avyra_test.mp3
